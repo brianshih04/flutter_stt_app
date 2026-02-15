@@ -8,7 +8,7 @@ import '../widgets/recording_button.dart';
 import '../constants/languages.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-const String appVersion = '0.11';
+const String appVersion = '0.19';
 
 class SttScreen extends StatefulWidget {
   const SttScreen({super.key});
@@ -108,7 +108,21 @@ class _SttScreenState extends State<SttScreen> {
                       ],
                     ),
 
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 12),
+
+                  // Download Language Pack Button — always visible
+                  TextButton.icon(
+                    onPressed: () {
+                      context.read<SttBloc>().add(const OpenLanguageSettings());
+                    },
+                    icon: const Icon(Icons.download, size: 18),
+                    label: const Text('下載語言包'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.blue,
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
 
                   // Status Indicator
                   _buildStatusIndicator(state),
@@ -237,32 +251,58 @@ class _SttScreenState extends State<SttScreen> {
         if (state is SttError || state is SttPermissionDenied)
           Padding(
             padding: const EdgeInsets.only(top: 12.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            child: Column(
               children: [
-                ElevatedButton.icon(
-                  onPressed: () {
-                    context.read<SttBloc>().add(const RetryStt());
-                  },
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('重試'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange.withValues(alpha: 0.15),
-                    foregroundColor: Colors.orange,
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        context.read<SttBloc>().add(const RetryStt());
+                      },
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('重試'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orange.withValues(alpha: 0.15),
+                        foregroundColor: Colors.orange,
+                      ),
+                    ),
+                    if (state is SttPermissionDenied) ...[
+                      const SizedBox(width: 12),
+                      ElevatedButton.icon(
+                        onPressed: () => openAppSettings(),
+                        icon: const Icon(Icons.settings),
+                        label: const Text('打開設定'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red.withValues(alpha: 0.1),
+                          foregroundColor: Colors.red,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-                if (state is SttPermissionDenied) ...[
-                  const SizedBox(width: 12),
-                  ElevatedButton.icon(
-                    onPressed: () => openAppSettings(),
-                    icon: const Icon(Icons.settings),
-                    label: const Text('打開設定'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red.withValues(alpha: 0.1),
-                      foregroundColor: Colors.red,
+                if (state is SttError &&
+                    (state.message.contains('language_unavailable') ||
+                        state.message.contains('語言模型未下載') ||
+                        state.message
+                            .contains('error_language_not_supported') ||
+                        state.message.contains('不支援此語言')))
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        context
+                            .read<SttBloc>()
+                            .add(const OpenLanguageSettings());
+                      },
+                      icon: const Icon(Icons.download),
+                      label: const Text('下載語言包'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue.withValues(alpha: 0.15),
+                        foregroundColor: Colors.blue,
+                      ),
                     ),
                   ),
-                ],
               ],
             ),
           ),

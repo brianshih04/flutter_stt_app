@@ -16,37 +16,37 @@ class Languages {
   static const traditionalChinese = SupportedLanguage(
     code: 'zh-TW',
     displayName: '繁體中文',
-    localeId: 'zh_TW',
+    localeId: 'zh-TW',
   );
 
   static const english = SupportedLanguage(
     code: 'en-US',
     displayName: 'English (US)',
-    localeId: 'en_US',
+    localeId: 'en-US',
   );
 
   static const japanese = SupportedLanguage(
     code: 'ja-JP',
     displayName: '日本語',
-    localeId: 'ja_JP',
+    localeId: 'ja-JP',
   );
 
   static const russian = SupportedLanguage(
     code: 'ru-RU',
     displayName: 'Русский',
-    localeId: 'ru_RU',
+    localeId: 'ru-RU',
   );
 
   static const thai = SupportedLanguage(
     code: 'th-TH',
     displayName: 'ไทย',
-    localeId: 'th_TH',
+    localeId: 'th-TH',
   );
 
   static const indonesian = SupportedLanguage(
     code: 'id-ID',
     displayName: 'Bahasa Indonesia',
-    localeId: 'id_ID',
+    localeId: 'id-ID',
   );
 
   static const List<SupportedLanguage> all = [

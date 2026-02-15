@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.widget.Toast
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
@@ -59,6 +60,7 @@ class SpeechRecognizerHandler(
                 dispose()
                 result.success(null)
             }
+            "openLanguageSettings" -> openLanguageSettings(result)
             else -> result.notImplemented()
         }
     }
@@ -118,21 +120,18 @@ class SpeechRecognizerHandler(
                     result.success(mapOf(
                         "success" to false,
                         "error" to "not_initialized",
-                        "message" to "SpeechRecognizer not initialized. Call initialize() first."
+                        "message" to "SpeechRecognizer not initialized"
                     ))
                     return@post
                 }
 
+                Log.d(TAG, "Starting recognition with locale: $localeId")
+
                 val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE, localeId)
-                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, localeId)
                     putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
                     putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
-                    // More lenient timeouts - wait longer for speech
-                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2000L)
-                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 2000L)
-                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 1500L)
                 }
 
                 speechRecognizer?.setRecognitionListener(object : RecognitionListener {
@@ -232,7 +231,7 @@ class SpeechRecognizerHandler(
                 })
 
                 speechRecognizer?.startListening(intent)
-                Log.d(TAG, "startListening called with locale: $localeId")
+                Log.d(TAG, "startListening called")
                 result.success(mapOf("success" to true))
 
             } catch (e: Exception) {
@@ -240,7 +239,7 @@ class SpeechRecognizerHandler(
                 result.success(mapOf(
                     "success" to false,
                     "error" to "start_failed",
-                    "message" to (e.message ?: "Unknown error starting listening")
+                    "message" to (e.message ?: "Unknown error")
                 ))
             }
         }
@@ -281,6 +280,54 @@ class SpeechRecognizerHandler(
                 Log.d(TAG, "SpeechRecognizer disposed")
             } catch (e: Exception) {
                 Log.e(TAG, "dispose error: ${e.message}", e)
+            }
+        }
+    }
+
+    private fun openLanguageSettings(result: MethodChannel.Result) {
+        mainHandler.post {
+            try {
+                Log.d(TAG, "openLanguageSettings called")
+
+                // Try 1: Open Google App directly — most reliable on Samsung
+                val googleApp = context.packageManager.getLaunchIntentForPackage("com.google.android.googlequicksearchbox")
+                if (googleApp != null) {
+                    googleApp.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    context.startActivity(googleApp)
+                    Toast.makeText(context, 
+                        "在 Google App 中：\n點右上角頭像 → 設定 → 語音 → 離線語音辨識\n下載需要的語言", 
+                        Toast.LENGTH_LONG).show()
+                    Log.d(TAG, "Opened Google App")
+                    result.success(mapOf("success" to true))
+                    return@post
+                }
+
+                // Try 2: Open Google Speech Services (Google 語音辨識及合成) settings
+                try {
+                    val speechServices = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = android.net.Uri.parse("package:com.google.android.tts")
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(speechServices)
+                    Toast.makeText(context, "請檢查語言包是否已下載", Toast.LENGTH_LONG).show()
+                    Log.d(TAG, "Opened Google TTS settings")
+                    result.success(mapOf("success" to true))
+                    return@post
+                } catch (e: Exception) {
+                    Log.d(TAG, "Google TTS settings not available: ${e.message}")
+                }
+
+                // Try 3: Open general settings
+                val fallback = Intent(Settings.ACTION_SETTINGS).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(fallback)
+                Toast.makeText(context, "請到：Google → 搜尋、助理與語音 → 語音 → 離線語音辨識", Toast.LENGTH_LONG).show()
+                result.success(mapOf("success" to true))
+            } catch (e: Exception) {
+                Log.e(TAG, "openLanguageSettings error: ${e.message}", e)
+                Toast.makeText(context, "開啟失敗: ${e.message}", Toast.LENGTH_LONG).show()
+                result.success(mapOf("success" to false, "error" to e.message))
             }
         }
     }

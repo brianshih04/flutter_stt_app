@@ -51,3 +51,7 @@ class UpdateTranscription extends SttEvent {
   @override
   List<Object?> get props => [text, isFinal];
 }
+
+class OpenLanguageSettings extends SttEvent {
+  const OpenLanguageSettings();
+}

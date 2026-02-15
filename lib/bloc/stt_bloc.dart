@@ -22,6 +22,7 @@ class SttBloc extends Bloc<SttEvent, SttState> {
     on<ChangeLanguage>(_onChangeLanguage);
     on<ChangeTargetLanguage>(_onChangeTargetLanguage);
     on<UpdateTranscription>(_onUpdateTranscription);
+    on<OpenLanguageSettings>(_onOpenLanguageSettings);
   }
 
   Future<void> _onInitialize(
@@ -40,7 +41,13 @@ class SttBloc extends Bloc<SttEvent, SttState> {
         },
         onError: (error) {
           Logger.severe('BLoC received error: $error');
-          add(const StopListening());
+          final errorStr = error.toString();
+          if (errorStr.contains('error_language_unavailable') ||
+              errorStr.contains('error_language_not_supported')) {
+            // Don't auto-stop — show a specific error for language unavailable
+          } else {
+            add(const StopListening());
+          }
         },
       );
 
@@ -230,6 +237,17 @@ class SttBloc extends Bloc<SttEvent, SttState> {
         transcription: event.text,
         translatedText: translated,
       ));
+    }
+  }
+
+  Future<void> _onOpenLanguageSettings(
+    OpenLanguageSettings event,
+    Emitter<SttState> emit,
+  ) async {
+    try {
+      await _sttService.openLanguageSettings();
+    } catch (e) {
+      Logger.severe('Failed to open language settings: $e');
     }
   }
 

@@ -231,6 +231,17 @@ class SttService {
     }
   }
 
+  /// Open Android language settings for downloading speech recognition language packs
+  Future<void> openLanguageSettings() async {
+    try {
+      Logger.info('Opening language settings...');
+      await _methodChannel.invokeMethod('openLanguageSettings');
+    } catch (e, stackTrace) {
+      Logger.severe('Failed to open language settings', e, stackTrace);
+      rethrow;
+    }
+  }
+
   /// Dispose resources
   Future<void> dispose() async {
     _eventSubscription?.cancel();
