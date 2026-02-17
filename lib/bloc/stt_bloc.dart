@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'stt_event.dart';
 import 'stt_state.dart';
 import '../services/stt_service.dart';
@@ -32,10 +33,21 @@ class SttBloc extends Bloc<SttEvent, SttState> {
     emit(const SttInitializing());
 
     try {
+      // Request microphone permission first
+      final micStatus = await Permission.microphone.request();
+      Logger.info('Microphone permission status: $micStatus');
+
+      if (micStatus.isDenied || micStatus.isPermanentlyDenied) {
+        emit(const SttPermissionDenied());
+        return;
+      }
+
       final result = await _sttService.initialize(
         onStatus: (status) {
           Logger.info('BLoC received status: $status');
-          if (status == 'done' || status == 'notListening') {
+          if (status == 'done' ||
+              status == 'notListening' ||
+              status == 'speechEnd') {
             add(const StopListening());
           }
         },
@@ -44,7 +56,7 @@ class SttBloc extends Bloc<SttEvent, SttState> {
           final errorStr = error.toString();
           if (errorStr.contains('error_language_unavailable') ||
               errorStr.contains('error_language_not_supported')) {
-            // Don't auto-stop — show a specific error for language unavailable
+            // Don't auto-stop — native layer will auto-retry once
           } else {
             add(const StopListening());
           }
@@ -143,21 +155,50 @@ class SttBloc extends Bloc<SttEvent, SttState> {
     try {
       await _sttService.stopListening();
 
-      // If we have a final result with text, keep showing it
+      // Get the last transcription text
+      String transcription = '';
+      String translatedText = '';
+
       if (state is SttListening) {
         final listeningState = state as SttListening;
-        if (listeningState.transcription.isNotEmpty) {
-          emit(SttResult(
-            currentLanguage: _currentLanguage,
-            targetLanguage: _targetLanguage,
-            transcription: listeningState.transcription,
-            translatedText: listeningState.translatedText,
-            isFinal: true,
-          ));
-          return;
-        }
+        transcription = listeningState.transcription;
+        translatedText = listeningState.translatedText;
+      } else if (state is SttResult) {
+        final resultState = state as SttResult;
+        transcription = resultState.transcription;
+        translatedText = resultState.translatedText;
       }
 
+      if (transcription.isNotEmpty) {
+        // If we have text but no translation yet, translate now
+        if (translatedText.isEmpty) {
+          Logger.info('Translating in StopListening: $transcription');
+          emit(const SttDownloadingModel('翻譯中...'));
+
+          try {
+            translatedText = await _translationService.translate(
+              transcription,
+              _currentLanguage,
+              _targetLanguage,
+            );
+            Logger.info('Translation result: $translatedText');
+          } catch (e) {
+            Logger.severe('Translation failed: $e');
+            translatedText = '(翻譯失敗)';
+          }
+        }
+
+        emit(SttResult(
+          currentLanguage: _currentLanguage,
+          targetLanguage: _targetLanguage,
+          transcription: transcription,
+          translatedText: translatedText,
+          isFinal: true,
+        ));
+        return;
+      }
+
+      // No transcription — go back to ready
       emit(SttReady(
         currentLanguage: _currentLanguage,
         targetLanguage: _targetLanguage,
@@ -165,7 +206,12 @@ class SttBloc extends Bloc<SttEvent, SttState> {
       ));
     } catch (e, stackTrace) {
       Logger.severe('Failed to stop listening', e, stackTrace);
-      emit(SttError('停止聆聽失敗: $e', currentLanguage: _currentLanguage));
+      // Even on error, go back to ready state so user can try again
+      emit(SttReady(
+        currentLanguage: _currentLanguage,
+        targetLanguage: _targetLanguage,
+        availableLocales: const [],
+      ));
     }
   }
 

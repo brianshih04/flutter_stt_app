@@ -8,7 +8,7 @@ import '../widgets/recording_button.dart';
 import '../constants/languages.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-const String appVersion = '0.19';
+const String appVersion = '0.31';
 
 class SttScreen extends StatefulWidget {
   const SttScreen({super.key});
@@ -411,7 +411,8 @@ class _SttScreenState extends State<SttScreen> {
 
   Widget _buildRecordingButton(SttState state) {
     final isListening = state is SttListening;
-    final isEnabled = state is SttReady || state is SttListening;
+    final isEnabled =
+        state is SttReady || state is SttListening || state is SttResult;
 
     return RecordingButton(
       isListening: isListening,
